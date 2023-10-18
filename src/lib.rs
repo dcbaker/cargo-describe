@@ -4,17 +4,17 @@
 use std::collections::HashMap;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Manifest {
     package: Package,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Package {
     metadata: Metadata,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Metadata {
     compiler_versions: HashMap<String, String>,
 }
