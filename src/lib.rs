@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 use serde::Deserialize;
+use semver::VersionReq;
 
 #[derive(Deserialize, Debug)]
 struct Manifest {
@@ -16,20 +17,21 @@ struct Package {
 
 #[derive(Deserialize, Debug)]
 struct Metadata {
-    compiler_versions: HashMap<String, String>,
+    compiler_versions: HashMap<String, VersionReq>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use semver::Version;
 
     #[test]
     fn test_basic_read() {
         let mani: Manifest = toml::from_str(r#"
             [package.metadata.compiler_versions]
-            foo = "bar"
+            foo = "1.0.0"
         "#).unwrap();
 
-        assert_eq!(mani.package.metadata.compiler_versions["foo"], "bar");
+        assert!(mani.package.metadata.compiler_versions["foo"].matches(&Version::new(1, 0, 0)));
     }
 }
