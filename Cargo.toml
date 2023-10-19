@@ -8,6 +8,10 @@ description = "Set configure flags based on rustc versions or supported features
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cfg-expr = { version = "~0.14", features = ["targets"] }
 semver = { version = "~1.0.20", features = ["serde"] }
 serde = { version = "~1.0.189", features = [ "derive" ] }
 toml = "~0.8"
+
+[dev-dependencies]
+temp-env = "~0.3.6"
