@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 use std::collections::HashMap;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
+use serde::de::Error;
 use semver::VersionReq;
 
 #[derive(Deserialize, Debug)]
@@ -15,9 +16,25 @@ struct Package {
     metadata: Metadata,
 }
 
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(untagged)]
+enum Constraint {
+    #[serde(deserialize_with = "to_version_req")]
+    VersionReq(VersionReq),
+    Platform(HashMap<String, VersionReq>),
+}
+
+fn to_version_req<'de, D>(deserializer: D) -> Result<VersionReq, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(deserializer)?;
+    VersionReq::parse(s.as_str()).map_err(D::Error::custom)
+}
+
 #[derive(Deserialize, Debug)]
 struct Metadata {
-    compiler_versions: HashMap<String, VersionReq>,
+    compiler_versions: HashMap<String, Constraint>,
 }
 
 #[cfg(test)]
@@ -32,6 +49,11 @@ mod tests {
             foo = "1.0.0"
         "#).unwrap();
 
-        assert!(mani.package.metadata.compiler_versions["foo"].matches(&Version::new(1, 0, 0)));
+        let v = &mani.package.metadata.compiler_versions["foo"];
+        let ver = match v {
+            Constraint::VersionReq(ver) => ver,
+            _ => panic!("Did not get a Version"),
+        };
+        assert!(ver.matches(&Version::new(1, 0, 0)));
     }
 }
