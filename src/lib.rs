@@ -130,6 +130,26 @@ mod tests {
     }
 
     #[test]
+    fn test_multiple_constraints() {
+        let mani: Manifest = toml::from_str(
+            r#"
+            [package.metadata.compiler_versions]
+            foo = ">1.0.0, <2.0.0"
+        "#,
+        )
+        .unwrap();
+
+        let v = &mani.package.metadata.compiler_versions["foo"];
+        let ver = match v {
+            Constraint::VersionReq(ver) => ver,
+            _ => panic!("Did not get a Version"),
+        };
+        assert!(ver.matches(&Version::new(1, 3, 0)));
+        assert!(!ver.matches(&Version::new(0, 3, 0)));
+        assert!(!ver.matches(&Version::new(2, 3, 0)));
+    }
+
+    #[test]
     fn test_cfg() {
         let mani: Manifest = toml::from_str(
             r#"
