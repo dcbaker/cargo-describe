@@ -24,7 +24,6 @@ struct Package {
 struct Condition {
     #[serde(deserialize_with = "to_version_req")]
     version: Option<VersionReq>,
-    cfg: Option<String>,
 }
 
 impl Condition {
@@ -133,15 +132,7 @@ fn check<W: io::Write>(writer: &mut W) {
 
     checks.iter().for_each(|(name, condition)| {
         if condition.check(&rustc.version) {
-            writeln!(
-                writer,
-                "cargo:rustc-cfg={}",
-                condition
-                    .cfg
-                    .as_ref()
-                    .unwrap_or(&format!("compiler_support_{}", name))
-            )
-            .unwrap();
+            writeln!(writer, "cargo:rustc-cfg={}", name).unwrap();
         }
     });
 }
@@ -247,23 +238,7 @@ mod tests {
             || {
                 let mut out = Vec::new();
                 check(&mut out);
-                assert_eq!(out, b"cargo:rustc-cfg=compiler_support_foo\n");
-            },
-        )
-    }
-
-    #[test]
-    fn test_emit_custom_name() {
-        temp_env::with_vars(
-            [
-                ("CARGO_MANIFEST_DIR", Some("test_cases/custom_name")),
-                ("CARGO_BUILD_RUSTC", Some("rustc")),
-                ("TARGET", Some("x86_64-unknown-linux-gnu")),
-            ],
-            || {
-                let mut out = Vec::new();
-                check(&mut out);
-                assert_eq!(out, b"cargo:rustc-cfg=can_do_stuff\n");
+                assert_eq!(out, b"cargo:rustc-cfg=foo\n");
             },
         )
     }
