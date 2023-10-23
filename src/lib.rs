@@ -24,10 +24,10 @@ struct Package {
 struct Condition {
     #[serde(deserialize_with = "to_version_req")]
     version: Option<VersionReq>,
+    cfg: Option<String>,
 }
 
 impl Condition {
-
     fn check(&self, rust_version: &Version) -> bool {
         match &self.version {
             Some(v) => v.matches(rust_version),
@@ -96,22 +96,29 @@ fn parse(text: &str) -> Vec<(String, Condition)> {
     return ret;
 }
 
-fn get_rustc_version() -> String {
+struct VersionData {
+    version: Version,
+}
+
+fn get_rustc_version() -> VersionData {
     let rustc = env::var("CARGO_BUILD_RUSTC").unwrap();
     let out = process::Command::new(rustc)
         .arg("--version")
+        .arg("--verbose")
         .output()
         .expect("Could not run rustc for version");
 
-    String::from_utf8(out.stdout)
-        .expect("Did not get valid output from rustc")
-        .split(" ")
-        .collect::<Vec<&str>>()[1]
-        .to_string()
+    let raw = String::from_utf8(out.stdout).expect("Did not get valid output from rustc");
+    let lines = raw.split("\n").collect::<Vec<&str>>();
+
+    let raw_version = lines[5].split(" ").collect::<Vec<&str>>()[1];
+    let version = Version::parse(raw_version).expect("Invalid Rustc version");
+
+    VersionData { version: version }
 }
 
 fn check<W: io::Write>(writer: &mut W) {
-    let rustc_ver = Version::parse(get_rustc_version().as_str()).unwrap();
+    let rustc = get_rustc_version();
 
     let root = env::var("CARGO_MANIFEST_DIR").unwrap();
     let p: path::PathBuf = [root, "Cargo.toml".to_string()].iter().collect();
@@ -119,8 +126,16 @@ fn check<W: io::Write>(writer: &mut W) {
     let checks = parse(&contents);
 
     checks.iter().for_each(|(name, condition)| {
-        if condition.check(&rustc_ver) {
-            writeln!(writer, "cargo:rustc-cfg=compiler_support_version_{}", name).unwrap();
+        if condition.check(&rustc.version) {
+            writeln!(
+                writer,
+                "cargo:rustc-cfg={}",
+                condition
+                    .cfg
+                    .as_ref()
+                    .unwrap_or(&format!("compiler_support_{}", name))
+            )
+            .unwrap();
         }
     });
 }
@@ -190,7 +205,11 @@ mod tests {
         };
 
         assert!(cfg.contains_key("foo"));
-        assert!(cfg["foo"].version.as_ref().unwrap().matches(&Version::new(1, 0, 9)));
+        assert!(cfg["foo"]
+            .version
+            .as_ref()
+            .unwrap()
+            .matches(&Version::new(1, 0, 9)));
     }
 
     #[test]
@@ -222,7 +241,23 @@ mod tests {
             || {
                 let mut out = Vec::new();
                 check(&mut out);
-                assert_eq!(out, b"cargo:rustc-cfg=compiler_support_version_foo\n");
+                assert_eq!(out, b"cargo:rustc-cfg=compiler_support_foo\n");
+            },
+        )
+    }
+
+    #[test]
+    fn test_emit_custom_name() {
+        temp_env::with_vars(
+            [
+                ("CARGO_MANIFEST_DIR", Some("test_cases/custom_name")),
+                ("CARGO_BUILD_RUSTC", Some("rustc")),
+                ("TARGET", Some("x86_64-unknown-linux-gnu")),
+            ],
+            || {
+                let mut out = Vec::new();
+                check(&mut out);
+                assert_eq!(out, b"cargo:rustc-cfg=can_do_stuff\n");
             },
         )
     }

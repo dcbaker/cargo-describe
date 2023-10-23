@@ -1,0 +1,2 @@
+[package.metadata.compiler_support]
+foo = { version = "~1", cfg = "can_do_stuff" }
