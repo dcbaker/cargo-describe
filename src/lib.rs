@@ -134,7 +134,7 @@ mod tests {
         let mani: Manifest = toml::from_str(
             r#"
             [package.metadata.compiler_versions.'cfg(target_os = "linux")']
-            foo = "1.0.0"
+            foo = "~1.0.0"
         "#,
         )
         .unwrap();
@@ -146,7 +146,7 @@ mod tests {
         };
 
         assert!(cfg.contains_key("foo"));
-        assert!(cfg["foo"].matches(&Version::new(1, 0, 0)));
+        assert!(cfg["foo"].matches(&Version::new(1, 0, 9)));
     }
 
     #[test]
