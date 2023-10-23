@@ -8,7 +8,7 @@ use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::vec::Vec;
-use std::{env, fs, path, process};
+use std::{env, fs, io, path, process};
 
 #[derive(Deserialize, Debug)]
 struct Manifest {
@@ -89,7 +89,7 @@ fn get_rustc_version() -> String {
         .to_string()
 }
 
-pub fn evaluate() {
+fn check<W: io::Write>(writer: &mut W) {
     let rustc_ver = Version::parse(get_rustc_version().as_str()).unwrap();
 
     let root = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -99,9 +99,13 @@ pub fn evaluate() {
 
     checks.iter().for_each(|(name, version)| {
         if version.matches(&rustc_ver) {
-            println!("cargo:rustc-cfg=compiler_support_{}", name);
+            writeln!(writer, "cargo:rustc-cfg=compiler_support_{}", name).unwrap();
         }
     });
+}
+
+pub fn evaluate() {
+    check(&mut io::stdout());
 }
 
 #[cfg(test)]
@@ -184,5 +188,33 @@ mod tests {
 
             assert_eq!(vals.len(), 2);
         });
+    }
+
+    #[test]
+    fn test_emits() {
+        temp_env::with_vars([
+            ("CARGO_MANIFEST_DIR", Some("test_cases/basic")),
+            ("CARGO_BUILD_RUSTC", Some("rustc")),
+            ("TARGET", Some("x86_64-unknown-linux-gnu")),
+        ],
+        || {
+            let mut out = Vec::new();
+            check(&mut out);
+            assert_eq!(out, b"cargo:rustc-cfg=compiler_support_foo\n");
+        })
+    }
+
+    #[test]
+    fn test_not_emits() {
+        temp_env::with_vars([
+            ("CARGO_MANIFEST_DIR", Some("test_cases/not")),
+            ("CARGO_BUILD_RUSTC", Some("rustc")),
+            ("TARGET", Some("x86_64-unknown-linux-gnu")),
+        ],
+        || {
+            let mut out = Vec::new();
+            check(&mut out);
+            assert_eq!(out.len(), 0);
+        })
     }
 }
