@@ -20,10 +20,20 @@ struct Package {
     metadata: Metadata,
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Clone, Deserialize, Debug, PartialEq)]
 struct Condition {
     #[serde(deserialize_with = "to_version_req")]
     version: Option<VersionReq>,
+}
+
+impl Condition {
+
+    fn check(&self, rust_version: &Version) -> bool {
+        match &self.version {
+            Some(v) => v.matches(rust_version),
+            None => false,
+        }
+    }
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -51,11 +61,11 @@ struct Metadata {
     compiler_support: HashMap<String, Constraint>,
 }
 
-fn parse(text: &str) -> Vec<(String, VersionReq)> {
+fn parse(text: &str) -> Vec<(String, Condition)> {
     let mani: Manifest =
         toml::from_str(text).expect("Did not find a 'compiler_versions' metadata section.");
     let target = env::var("TARGET").unwrap();
-    let mut ret: Vec<(String, VersionReq)> = vec![];
+    let mut ret: Vec<(String, Condition)> = vec![];
 
     mani.package
         .metadata
@@ -63,7 +73,7 @@ fn parse(text: &str) -> Vec<(String, VersionReq)> {
         .iter()
         .for_each(|(k, v)| {
             match v {
-                Constraint::Condition(con) => ret.push((k.clone(), con.version.as_ref().unwrap().clone())),
+                Constraint::Condition(con) => ret.push((k.clone(), con.clone())),
                 Constraint::Cfg(c) => {
                     let cfg = Expression::parse(k).unwrap();
                     let res = if let Some(tinfo) = get_builtin_target_by_triple(&target) {
@@ -76,7 +86,7 @@ fn parse(text: &str) -> Vec<(String, VersionReq)> {
                     };
                     if res {
                         c.iter().for_each(|(ck, cv)| {
-                            ret.push((ck.clone(), cv.version.as_ref().unwrap().clone()));
+                            ret.push((ck.clone(), cv.clone()));
                         });
                     }
                 }
@@ -108,8 +118,8 @@ fn check<W: io::Write>(writer: &mut W) {
     let contents = fs::read_to_string(p).unwrap();
     let checks = parse(&contents);
 
-    checks.iter().for_each(|(name, version)| {
-        if version.matches(&rustc_ver) {
+    checks.iter().for_each(|(name, condition)| {
+        if condition.check(&rustc_ver) {
             writeln!(writer, "cargo:rustc-cfg=compiler_support_version_{}", name).unwrap();
         }
     });
