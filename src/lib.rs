@@ -101,7 +101,6 @@ pub fn evaluate() {
         if version.matches(&rustc_ver) {
             println!("cargo:rustc-cfg=compiler_support_{}", name);
         }
-
     });
 }
 
