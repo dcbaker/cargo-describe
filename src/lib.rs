@@ -100,8 +100,14 @@ struct VersionData {
     version: Version,
 }
 
+fn get_rustc() -> String {
+    env::var("RUSTC")
+        .unwrap_or(env::var("CARGO_BUILD_RUSTC").unwrap_or("rustc".to_string()))
+        .to_string()
+}
+
 fn get_rustc_version() -> VersionData {
-    let rustc = env::var("CARGO_BUILD_RUSTC").unwrap();
+    let rustc = get_rustc();
     let out = process::Command::new(rustc)
         .arg("--version")
         .arg("--verbose")
