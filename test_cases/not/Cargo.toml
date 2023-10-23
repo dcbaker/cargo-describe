@@ -1,2 +1,2 @@
 [package.metadata.compiler_support]
-foo = "~4"
+foo = { version = "~4" }

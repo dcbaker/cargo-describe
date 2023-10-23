@@ -21,19 +21,29 @@ struct Package {
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
-#[serde(untagged)]
-enum Constraint {
+struct Condition {
     #[serde(deserialize_with = "to_version_req")]
-    VersionReq(VersionReq),
-    Cfg(HashMap<String, VersionReq>),
+    version: Option<VersionReq>,
 }
 
-fn to_version_req<'de, D>(deserializer: D) -> Result<VersionReq, D::Error>
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(untagged)]
+enum Constraint {
+    Condition(Condition),
+    Cfg(HashMap<String, Condition>),
+}
+
+fn to_version_req<'de, D>(deserializer: D) -> Result<Option<VersionReq>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let s: String = Deserialize::deserialize(deserializer)?;
-    VersionReq::parse(s.as_str()).map_err(D::Error::custom)
+    let o: Option<String> = Deserialize::deserialize(deserializer)?;
+    match o {
+        Some(s) => VersionReq::parse(s.as_str())
+            .map_err(D::Error::custom)
+            .map(Some),
+        None => Ok(None),
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -53,7 +63,7 @@ fn parse(text: &str) -> Vec<(String, VersionReq)> {
         .iter()
         .for_each(|(k, v)| {
             match v {
-                Constraint::VersionReq(ver) => ret.push((k.clone(), ver.clone())),
+                Constraint::Condition(con) => ret.push((k.clone(), con.version.as_ref().unwrap().clone())),
                 Constraint::Cfg(c) => {
                     let cfg = Expression::parse(k).unwrap();
                     let res = if let Some(tinfo) = get_builtin_target_by_triple(&target) {
@@ -66,7 +76,7 @@ fn parse(text: &str) -> Vec<(String, VersionReq)> {
                     };
                     if res {
                         c.iter().for_each(|(ck, cv)| {
-                            ret.push((ck.clone(), cv.clone()));
+                            ret.push((ck.clone(), cv.version.as_ref().unwrap().clone()));
                         });
                     }
                 }
@@ -120,14 +130,14 @@ mod tests {
         let mani: Manifest = toml::from_str(
             r#"
             [package.metadata.compiler_support]
-            foo = "1.0.0"
+            foo = { version = "1.0.0" }
         "#,
         )
         .unwrap();
 
         let v = &mani.package.metadata.compiler_support["foo"];
         let ver = match v {
-            Constraint::VersionReq(ver) => ver,
+            Constraint::Condition(ver) => ver.version.as_ref().unwrap(),
             _ => panic!("Did not get a Version"),
         };
         assert!(ver.matches(&Version::new(1, 0, 0)));
@@ -138,14 +148,14 @@ mod tests {
         let mani: Manifest = toml::from_str(
             r#"
             [package.metadata.compiler_support]
-            foo = ">1.0.0, <2.0.0"
+            foo = { version = ">1.0.0, <2.0.0" }
         "#,
         )
         .unwrap();
 
         let v = &mani.package.metadata.compiler_support["foo"];
         let ver = match v {
-            Constraint::VersionReq(ver) => ver,
+            Constraint::Condition(ver) => ver.version.as_ref().unwrap(),
             _ => panic!("Did not get a Version"),
         };
         assert!(ver.matches(&Version::new(1, 3, 0)));
@@ -158,7 +168,7 @@ mod tests {
         let mani: Manifest = toml::from_str(
             r#"
             [package.metadata.compiler_support.'cfg(target_os = "linux")']
-            foo = "~1.0.0"
+            foo = { version = "~1.0.0" }
         "#,
         )
         .unwrap();
@@ -170,7 +180,7 @@ mod tests {
         };
 
         assert!(cfg.contains_key("foo"));
-        assert!(cfg["foo"].matches(&Version::new(1, 0, 9)));
+        assert!(cfg["foo"].version.as_ref().unwrap().matches(&Version::new(1, 0, 9)));
     }
 
     #[test]
@@ -179,11 +189,11 @@ mod tests {
             let vals = parse(
                 r#"
                 [package.metadata.compiler_support]
-                foo = "1.0.0"
+                foo = { version = "1.0.0" }
                 [package.metadata.compiler_support.'cfg(target_os = "linux")']
-                bar = "1.2.0"
+                bar = { version = "1.2.0" }
                 [package.metadata.compiler_support.'cfg(target_os = "windows")']
-                bad = "1.2.0"
+                bad = { version = "1.2.0" }
             "#,
             );
 
