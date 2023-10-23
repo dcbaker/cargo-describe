@@ -1,2 +1,2 @@
-[package.metadata.compiler_versions]
+[package.metadata.compiler_support]
 foo = "~1"

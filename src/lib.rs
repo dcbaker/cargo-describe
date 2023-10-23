@@ -38,17 +38,18 @@ where
 
 #[derive(Deserialize, Debug)]
 struct Metadata {
-    compiler_versions: HashMap<String, Constraint>,
+    compiler_support: HashMap<String, Constraint>,
 }
 
 fn parse(text: &str) -> Vec<(String, VersionReq)> {
-    let mani: Manifest = toml::from_str(text).unwrap();
+    let mani: Manifest =
+        toml::from_str(text).expect("Did not find a 'compiler_versions' metadata section.");
     let target = env::var("TARGET").unwrap();
     let mut ret: Vec<(String, VersionReq)> = vec![];
 
     mani.package
         .metadata
-        .compiler_versions
+        .compiler_support
         .iter()
         .for_each(|(k, v)| {
             match v {
@@ -99,7 +100,7 @@ fn check<W: io::Write>(writer: &mut W) {
 
     checks.iter().for_each(|(name, version)| {
         if version.matches(&rustc_ver) {
-            writeln!(writer, "cargo:rustc-cfg=compiler_support_{}", name).unwrap();
+            writeln!(writer, "cargo:rustc-cfg=compiler_support_version_{}", name).unwrap();
         }
     });
 }
@@ -118,13 +119,13 @@ mod tests {
     fn test_basic_read() {
         let mani: Manifest = toml::from_str(
             r#"
-            [package.metadata.compiler_versions]
+            [package.metadata.compiler_support]
             foo = "1.0.0"
         "#,
         )
         .unwrap();
 
-        let v = &mani.package.metadata.compiler_versions["foo"];
+        let v = &mani.package.metadata.compiler_support["foo"];
         let ver = match v {
             Constraint::VersionReq(ver) => ver,
             _ => panic!("Did not get a Version"),
@@ -136,13 +137,13 @@ mod tests {
     fn test_multiple_constraints() {
         let mani: Manifest = toml::from_str(
             r#"
-            [package.metadata.compiler_versions]
+            [package.metadata.compiler_support]
             foo = ">1.0.0, <2.0.0"
         "#,
         )
         .unwrap();
 
-        let v = &mani.package.metadata.compiler_versions["foo"];
+        let v = &mani.package.metadata.compiler_support["foo"];
         let ver = match v {
             Constraint::VersionReq(ver) => ver,
             _ => panic!("Did not get a Version"),
@@ -156,13 +157,13 @@ mod tests {
     fn test_cfg() {
         let mani: Manifest = toml::from_str(
             r#"
-            [package.metadata.compiler_versions.'cfg(target_os = "linux")']
+            [package.metadata.compiler_support.'cfg(target_os = "linux")']
             foo = "~1.0.0"
         "#,
         )
         .unwrap();
 
-        let v = &mani.package.metadata.compiler_versions["cfg(target_os = \"linux\")"];
+        let v = &mani.package.metadata.compiler_support["cfg(target_os = \"linux\")"];
         let cfg = match v {
             Constraint::Cfg(cfg) => cfg,
             _ => panic!("Did not get a Version"),
@@ -177,11 +178,11 @@ mod tests {
         temp_env::with_var("TARGET", Some("x86_64-unknown-linux-gnu"), || {
             let vals = parse(
                 r#"
-                [package.metadata.compiler_versions]
+                [package.metadata.compiler_support]
                 foo = "1.0.0"
-                [package.metadata.compiler_versions.'cfg(target_os = "linux")']
+                [package.metadata.compiler_support.'cfg(target_os = "linux")']
                 bar = "1.2.0"
-                [package.metadata.compiler_versions.'cfg(target_os = "windows")']
+                [package.metadata.compiler_support.'cfg(target_os = "windows")']
                 bad = "1.2.0"
             "#,
             );
@@ -192,29 +193,33 @@ mod tests {
 
     #[test]
     fn test_emits() {
-        temp_env::with_vars([
-            ("CARGO_MANIFEST_DIR", Some("test_cases/basic")),
-            ("CARGO_BUILD_RUSTC", Some("rustc")),
-            ("TARGET", Some("x86_64-unknown-linux-gnu")),
-        ],
-        || {
-            let mut out = Vec::new();
-            check(&mut out);
-            assert_eq!(out, b"cargo:rustc-cfg=compiler_support_foo\n");
-        })
+        temp_env::with_vars(
+            [
+                ("CARGO_MANIFEST_DIR", Some("test_cases/basic")),
+                ("CARGO_BUILD_RUSTC", Some("rustc")),
+                ("TARGET", Some("x86_64-unknown-linux-gnu")),
+            ],
+            || {
+                let mut out = Vec::new();
+                check(&mut out);
+                assert_eq!(out, b"cargo:rustc-cfg=compiler_support_version_foo\n");
+            },
+        )
     }
 
     #[test]
     fn test_not_emits() {
-        temp_env::with_vars([
-            ("CARGO_MANIFEST_DIR", Some("test_cases/not")),
-            ("CARGO_BUILD_RUSTC", Some("rustc")),
-            ("TARGET", Some("x86_64-unknown-linux-gnu")),
-        ],
-        || {
-            let mut out = Vec::new();
-            check(&mut out);
-            assert_eq!(out.len(), 0);
-        })
+        temp_env::with_vars(
+            [
+                ("CARGO_MANIFEST_DIR", Some("test_cases/not")),
+                ("CARGO_BUILD_RUSTC", Some("rustc")),
+                ("TARGET", Some("x86_64-unknown-linux-gnu")),
+            ],
+            || {
+                let mut out = Vec::new();
+                check(&mut out);
+                assert_eq!(out.len(), 0);
+            },
+        )
     }
 }
