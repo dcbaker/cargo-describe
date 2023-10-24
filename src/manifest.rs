@@ -1,11 +1,9 @@
-// Copyright © 2023 Dylan Baker
 // SPDX-License-Identifier: MIT
 
 use cfg_expr::targets::get_builtin_target_by_triple;
 use cfg_expr::{Expression, Predicate};
 use semver::{Version, VersionReq};
-use serde::de::Error;
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;
 use std::vec::Vec;
@@ -22,12 +20,25 @@ struct Package {
 
 #[derive(Clone, Deserialize, Debug, PartialEq)]
 pub struct Condition {
-    #[serde(deserialize_with = "to_version_req")]
+    #[serde(default)]
     version: Option<VersionReq>,
+
+    #[serde(default)]
+    features: Vec<String>,
 }
 
 impl Condition {
     pub fn check(&self, rust_version: &Version) -> bool {
+        if !self.features.is_empty() {
+            let feat = self
+                .features
+                .iter()
+                .all(|name| env::var(format!("CARGO_FEATURE_{}", name.to_uppercase())).is_ok());
+            if feat {
+                return true;
+            };
+        }
+
         match &self.version {
             Some(v) => v.matches(rust_version),
             None => false,
@@ -38,21 +49,8 @@ impl Condition {
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 enum Constraint {
-    Condition(Condition),
     Cfg(HashMap<String, Condition>),
-}
-
-fn to_version_req<'de, D>(deserializer: D) -> Result<Option<VersionReq>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let o: Option<String> = Deserialize::deserialize(deserializer)?;
-    match o {
-        Some(s) => VersionReq::parse(s.as_str())
-            .map_err(D::Error::custom)
-            .map(Some),
-        None => Ok(None),
-    }
+    Condition(Condition),
 }
 
 #[derive(Deserialize, Debug)]
@@ -151,7 +149,7 @@ mod tests {
         let v = &mani.package.metadata.compiler_support["cfg(target_os = \"linux\")"];
         let cfg = match v {
             Constraint::Cfg(cfg) => cfg,
-            _ => panic!("Did not get a Version"),
+            _ => panic!("Got a Condition instead of a CFG"),
         };
 
         assert!(cfg.contains_key("foo"));
@@ -178,5 +176,92 @@ mod tests {
 
             assert_eq!(vals.len(), 2);
         });
+    }
+
+    #[test]
+    fn test_features() {
+        let mani: Manifest = toml::from_str(
+            r#"
+            [package.metadata.compiler_support]
+            foo = { features = ["a_feature"] }
+        "#,
+        )
+        .unwrap();
+
+        let v = &mani.package.metadata.compiler_support["foo"];
+        let features = match v {
+            Constraint::Condition(ver) => ver.features.as_ref(),
+            _ => panic!("Did not get any features!"),
+        };
+        let expected = vec!["a_feature"];
+        assert_eq!(features, expected);
+    }
+
+    #[test]
+    fn test_condition_check_version_match() {
+        let c = Condition {
+            version: VersionReq::parse(">= 1").ok(),
+            features: vec![],
+        };
+        assert!(c.check(&Version::new(1, 0, 0)));
+    }
+
+    #[test]
+    fn test_condition_check_version_not_match() {
+        let c = Condition {
+            version: VersionReq::parse("< 1").ok(),
+            features: vec![],
+        };
+        assert!(!c.check(&Version::new(1, 0, 0)));
+    }
+
+    #[test]
+    fn test_condition_check_feature_match() {
+        temp_env::with_var("CARGO_FEATURE_BAR", Some(""), || {
+            let c = Condition {
+                version: None,
+                features: vec!["bar".to_string()],
+            };
+            assert!(c.check(&Version::new(1, 0, 0)));
+        })
+    }
+
+    #[test]
+    fn test_condition_check_feature_not_match() {
+        let c = Condition {
+            version: None,
+            features: vec!["bar".to_string()],
+        };
+        assert!(!c.check(&Version::new(1, 0, 0)));
+    }
+
+    #[test]
+    fn test_condition_check_feature_and_version_match() {
+        temp_env::with_var("CARGO_FEATURE_BAR", Some(""), || {
+            let c = Condition {
+                version: VersionReq::parse(">= 1").ok(),
+                features: vec!["bar".to_string()],
+            };
+            assert!(c.check(&Version::new(1, 0, 0)));
+        })
+    }
+    #[test]
+    fn test_condition_check_feature_match_version_doesnt() {
+        temp_env::with_var("CARGO_FEATURE_BAR", Some(""), || {
+            let c = Condition {
+                version: VersionReq::parse("< 1").ok(),
+                features: vec!["bar".to_string()],
+            };
+            assert!(c.check(&Version::new(1, 0, 0)));
+        })
+    }
+
+    #[test]
+    fn test_condition_check_version_match_feature_doesnt() {
+        let c = Condition {
+            version: VersionReq::parse("^1").ok(),
+            features: vec!["bar".to_string()],
+        };
+        assert!(c.check(&Version::new(1, 0, 0)));
     }
 }

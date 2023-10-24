@@ -75,6 +75,23 @@ mod tests {
     }
 
     #[test]
+    fn test_emits_features() {
+        temp_env::with_vars(
+            [
+                ("CARGO_MANIFEST_DIR", Some("test_cases/features")),
+                ("CARGO_BUILD_RUSTC", Some("rustc")),
+                ("CARGO_FEATURE_A_FEATURE", None),
+                ("TARGET", Some("x86_64-unknown-linux-gnu")),
+            ],
+            || {
+                let mut out = Vec::new();
+                check(&mut out);
+                assert_eq!(out, b"cargo:rustc-cfg=foo\n");
+            },
+        )
+    }
+
+    #[test]
     fn test_not_emits() {
         temp_env::with_vars(
             [
