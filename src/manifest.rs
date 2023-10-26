@@ -61,7 +61,7 @@ struct Metadata {
 pub fn parse(text: &str) -> Vec<(String, Condition)> {
     let mani: Manifest =
         toml::from_str(text).expect("Did not find a 'compiler_versions' metadata section.");
-    let target = env::var("TARGET").unwrap();
+    let target = env::var("TARGET").expect("TARGET environment variable is unset");
     let mut ret: Vec<(String, Condition)> = vec![];
 
     mani.package
@@ -72,14 +72,14 @@ pub fn parse(text: &str) -> Vec<(String, Condition)> {
             match v {
                 Constraint::Condition(con) => ret.push((k.clone(), con.clone())),
                 Constraint::Cfg(c) => {
-                    let cfg = Expression::parse(k).unwrap();
-                    let res = if let Some(tinfo) = get_builtin_target_by_triple(&target) {
-                        cfg.eval(|p| match p {
+                    let cfg = Expression::parse(k)
+                        .expect(format!("Invalid cfg expression: {}", k.to_string()).as_str());
+                    let res = match get_builtin_target_by_triple(&target) {
+                        Some(tinfo) => cfg.eval(|p| match p {
                             Predicate::Target(tp) => tp.matches(tinfo),
-                            _ => false,
-                        })
-                    } else {
-                        false
+                            _ => panic!("Invalid CFG expression: {}", &target),
+                        }),
+                        None => panic!("Invalid CFG expression: {}", &target),
                     };
                     if res {
                         c.iter().for_each(|(ck, cv)| {
@@ -175,6 +175,21 @@ mod tests {
             );
 
             assert_eq!(vals.len(), 2);
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid CFG expression: x86_65-unknown-freax-gna")]
+    fn test_invalid_cfg() {
+        temp_env::with_var("TARGET", Some("x86_65-unknown-freax-gna"), || {
+            let vals = parse(
+                r#"
+                [package.metadata.compiler_support.'cfg(target_os = "linux")']
+                bar = { version = "1.2.0" }
+            "#,
+            );
+
+            assert_eq!(vals.len(), 0);
         });
     }
 

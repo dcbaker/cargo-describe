@@ -37,9 +37,9 @@ fn get_rustc_version() -> VersionData {
 fn check<W: io::Write>(writer: &mut W) {
     let rustc = get_rustc_version();
 
-    let root = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let root = env::var("CARGO_MANIFEST_DIR").expect("Cargo manifest environment variable unset");
     let p: path::PathBuf = [root, "Cargo.toml".to_string()].iter().collect();
-    let contents = fs::read_to_string(p).unwrap();
+    let contents = fs::read_to_string(p).expect("Could not read Cargo.toml");
     let checks = manifest::parse(&contents);
 
     checks.iter().for_each(|(name, condition)| {
@@ -80,7 +80,7 @@ mod tests {
             [
                 ("CARGO_MANIFEST_DIR", Some("test_cases/features")),
                 ("CARGO_BUILD_RUSTC", Some("rustc")),
-                ("CARGO_FEATURE_A_FEATURE", None),
+                ("CARGO_FEATURE_A_FEATURE", Some("")),
                 ("TARGET", Some("x86_64-unknown-linux-gnu")),
             ],
             || {
