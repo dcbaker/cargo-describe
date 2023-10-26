@@ -4,11 +4,11 @@
 mod manifest;
 
 use semver::Version;
-use std::vec::Vec;
 use std::{env, fs, io, path, process};
 
 struct VersionData {
     version: Version,
+    nightly: bool,
 }
 
 fn get_rustc() -> String {
@@ -26,12 +26,21 @@ fn get_rustc_version() -> VersionData {
         .expect("Could not run rustc for version");
 
     let raw = String::from_utf8(out.stdout).expect("Did not get valid output from rustc");
-    let lines = raw.split("\n").collect::<Vec<&str>>();
+    let raw_version = raw
+        .split("\n")
+        .nth(5)
+        .expect("Got unexpected rustc version output")
+        .split(" ")
+        .nth(1)
+        .expect("Not in 'release: <version>' form");
+    let mut pieces = raw_version.split("-");
+    let version = Version::parse(pieces.next().unwrap()).expect("Invalid Rustc version");
+    let nightly: bool = pieces.next().map(|x| x == "nightly").unwrap_or(false);
 
-    let raw_version = lines[5].split(" ").collect::<Vec<&str>>()[1];
-    let version = Version::parse(raw_version).expect("Invalid Rustc version");
-
-    VersionData { version: version }
+    VersionData {
+        version: version,
+        nightly: nightly,
+    }
 }
 
 fn check<W: io::Write>(writer: &mut W) {
@@ -71,7 +80,10 @@ mod tests {
             || {
                 let mut out = Vec::new();
                 check(&mut out);
-                assert_eq!(out, b"cargo:rerun-if-changed=Cargo.toml\ncargo:rustc-cfg=foo\n");
+                assert_eq!(
+                    out,
+                    b"cargo:rerun-if-changed=Cargo.toml\ncargo:rustc-cfg=foo\n"
+                );
             },
         )
     }
@@ -88,7 +100,10 @@ mod tests {
             || {
                 let mut out = Vec::new();
                 check(&mut out);
-                assert_eq!(out, b"cargo:rerun-if-changed=Cargo.toml\ncargo:rustc-cfg=foo\n");
+                assert_eq!(
+                    out,
+                    b"cargo:rerun-if-changed=Cargo.toml\ncargo:rustc-cfg=foo\n"
+                );
             },
         )
     }
