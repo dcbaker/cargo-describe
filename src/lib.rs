@@ -42,6 +42,8 @@ fn check<W: io::Write>(writer: &mut W) {
     let contents = fs::read_to_string(p).expect("Could not read Cargo.toml");
     let checks = manifest::parse(&contents);
 
+    writeln!(writer, "cargo:rerun-if-changed=Cargo.toml").unwrap();
+
     checks.iter().for_each(|(name, condition)| {
         if condition.check(&rustc.version) {
             writeln!(writer, "cargo:rustc-cfg={}", name).unwrap();
@@ -69,7 +71,7 @@ mod tests {
             || {
                 let mut out = Vec::new();
                 check(&mut out);
-                assert_eq!(out, b"cargo:rustc-cfg=foo\n");
+                assert_eq!(out, b"cargo:rerun-if-changed=Cargo.toml\ncargo:rustc-cfg=foo\n");
             },
         )
     }
@@ -86,7 +88,7 @@ mod tests {
             || {
                 let mut out = Vec::new();
                 check(&mut out);
-                assert_eq!(out, b"cargo:rustc-cfg=foo\n");
+                assert_eq!(out, b"cargo:rerun-if-changed=Cargo.toml\ncargo:rustc-cfg=foo\n");
             },
         )
     }
@@ -102,7 +104,7 @@ mod tests {
             || {
                 let mut out = Vec::new();
                 check(&mut out);
-                assert_eq!(out.len(), 0);
+                assert_eq!(out, b"cargo:rerun-if-changed=Cargo.toml\n");
             },
         )
     }
