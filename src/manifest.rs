@@ -24,10 +24,40 @@ pub struct Condition {
     version: Option<VersionReq>,
 
     #[serde(default)]
+    nightly_version: Option<VersionReq>,
+
+    #[serde(default)]
     features: Vec<String>,
 }
 
 impl Condition {
+    #[cfg(test)]
+    fn new() -> Self {
+        Condition {
+            version: None,
+            nightly_version: None,
+            features: Vec::<String>::new(),
+        }
+    }
+
+    #[cfg(test)]
+    fn set_version(mut self, v: Option<VersionReq>) -> Self {
+        self.version = v;
+        self
+    }
+
+    #[cfg(test)]
+    fn set_nightly(mut self, v: Option<VersionReq>) -> Self {
+        self.nightly_version = v;
+        self
+    }
+
+    #[cfg(test)]
+    fn set_features(mut self, f: &Vec<String>) -> Self {
+        self.features = f.clone();
+        self
+    }
+
     pub fn check(&self, rust_version: &Version) -> bool {
         if !self.features.is_empty() {
             let feat = self
@@ -212,29 +242,20 @@ mod tests {
 
     #[test]
     fn test_condition_check_version_match() {
-        let c = Condition {
-            version: VersionReq::parse(">= 1").ok(),
-            features: vec![],
-        };
+        let c = Condition::new().set_version(VersionReq::parse(">= 1").ok());
         assert!(c.check(&Version::new(1, 0, 0)));
     }
 
     #[test]
     fn test_condition_check_version_not_match() {
-        let c = Condition {
-            version: VersionReq::parse("< 1").ok(),
-            features: vec![],
-        };
+        let c = Condition::new().set_version(VersionReq::parse("< 1").ok());
         assert!(!c.check(&Version::new(1, 0, 0)));
     }
 
     #[test]
     fn test_condition_check_feature_match() {
         temp_env::with_var("CARGO_FEATURE_BAR", Some(""), || {
-            let c = Condition {
-                version: None,
-                features: vec!["bar".to_string()],
-            };
+            let c = Condition::new().set_features(&vec!["bar".to_string()]);
             assert!(c.check(&Version::new(1, 0, 0)));
         })
     }
@@ -242,10 +263,7 @@ mod tests {
     #[test]
     fn test_condition_check_feature_not_match() {
         temp_env::with_var_unset("CARGO_FEATURE_BAR", || {
-            let c = Condition {
-                version: None,
-                features: vec!["bar".to_string()],
-            };
+            let c = Condition::new().set_features(&vec!["bar".to_string()]);
             assert!(!c.check(&Version::new(1, 0, 0)));
         });
     }
@@ -253,10 +271,9 @@ mod tests {
     #[test]
     fn test_condition_check_feature_and_version_match() {
         temp_env::with_var("CARGO_FEATURE_BAR", Some(""), || {
-            let c = Condition {
-                version: VersionReq::parse(">= 1").ok(),
-                features: vec!["bar".to_string()],
-            };
+            let c = Condition::new()
+                .set_features(&vec!["bar".to_string()])
+                .set_version(VersionReq::parse(">= 1").ok());
             assert!(c.check(&Version::new(1, 0, 0)));
         })
     }
@@ -264,10 +281,9 @@ mod tests {
     #[test]
     fn test_condition_check_feature_match_version_doesnt() {
         temp_env::with_var("CARGO_FEATURE_BAR", Some(""), || {
-            let c = Condition {
-                version: VersionReq::parse("< 1").ok(),
-                features: vec!["bar".to_string()],
-            };
+            let c = Condition::new()
+                .set_features(&vec!["bar".to_string()])
+                .set_version(VersionReq::parse("< 1").ok());
             assert!(c.check(&Version::new(1, 0, 0)));
         })
     }
@@ -275,10 +291,9 @@ mod tests {
     #[test]
     fn test_condition_check_version_match_feature_doesnt() {
         temp_env::with_var_unset("CARGO_FEATURE_BAR", || {
-            let c = Condition {
-                version: VersionReq::parse("^1").ok(),
-                features: vec!["bar".to_string()],
-            };
+            let c = Condition::new()
+                .set_features(&vec!["bar".to_string()])
+                .set_version(VersionReq::parse("^1").ok());
             assert!(c.check(&Version::new(1, 0, 0)));
         });
     }
