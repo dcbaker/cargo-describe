@@ -182,14 +182,12 @@ mod tests {
     #[should_panic(expected = "Invalid CFG expression: x86_65-unknown-freax-gna")]
     fn test_invalid_cfg() {
         temp_env::with_var("TARGET", Some("x86_65-unknown-freax-gna"), || {
-            let vals = parse(
+            parse(
                 r#"
                 [package.metadata.compiler_support.'cfg(target_os = "linux")']
                 bar = { version = "1.2.0" }
             "#,
             );
-
-            assert_eq!(vals.len(), 0);
         });
     }
 
@@ -243,11 +241,13 @@ mod tests {
 
     #[test]
     fn test_condition_check_feature_not_match() {
-        let c = Condition {
-            version: None,
-            features: vec!["bar".to_string()],
-        };
-        assert!(!c.check(&Version::new(1, 0, 0)));
+        temp_env::with_var_unset("CARGO_FEATURE_BAR", || {
+            let c = Condition {
+                version: None,
+                features: vec!["bar".to_string()],
+            };
+            assert!(!c.check(&Version::new(1, 0, 0)));
+        });
     }
 
     #[test]
@@ -260,6 +260,7 @@ mod tests {
             assert!(c.check(&Version::new(1, 0, 0)));
         })
     }
+
     #[test]
     fn test_condition_check_feature_match_version_doesnt() {
         temp_env::with_var("CARGO_FEATURE_BAR", Some(""), || {
@@ -273,10 +274,12 @@ mod tests {
 
     #[test]
     fn test_condition_check_version_match_feature_doesnt() {
-        let c = Condition {
-            version: VersionReq::parse("^1").ok(),
-            features: vec!["bar".to_string()],
-        };
-        assert!(c.check(&Version::new(1, 0, 0)));
+        temp_env::with_var_unset("CARGO_FEATURE_BAR", || {
+            let c = Condition {
+                version: VersionReq::parse("^1").ok(),
+                features: vec!["bar".to_string()],
+            };
+            assert!(c.check(&Version::new(1, 0, 0)));
+        });
     }
 }
