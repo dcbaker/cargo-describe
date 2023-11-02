@@ -1,2 +1,2 @@
-[package.metadata.compiler_support]
+[package.metadata.toml_describe.compiler_checks]
 foo = { version = "~4" }

@@ -29,6 +29,17 @@ struct Package {
     metadata: Metadata,
 }
 
+#[derive(Deserialize, Debug)]
+struct Metadata {
+    toml_describe: TomlDescribe,
+}
+
+#[derive(Deserialize, Debug)]
+struct TomlDescribe {
+    compiler_checks: HashMap<String, Constraint>,
+}
+
+
 #[derive(Clone, Deserialize, Debug, PartialEq)]
 pub struct Condition {
     #[serde(default)]
@@ -81,20 +92,16 @@ enum Constraint {
     Condition(Condition),
 }
 
-#[derive(Deserialize, Debug)]
-struct Metadata {
-    compiler_support: HashMap<String, Constraint>,
-}
-
 pub fn parse(text: &str) -> Vec<(String, Condition)> {
     let mani: Manifest =
-        toml::from_str(text).expect("Did not find a 'compiler_versions' metadata section.");
+        toml::from_str(text).expect("Did not find a 'toml_describe' metadata section.");
     let target = env::var("TARGET").expect("TARGET environment variable is unset");
     let mut ret: Vec<(String, Condition)> = vec![];
 
     mani.package
         .metadata
-        .compiler_support
+        .toml_describe
+        .compiler_checks
         .iter()
         .for_each(|(k, v)| {
             match v {
@@ -130,13 +137,13 @@ mod tests {
     fn test_basic_read() {
         let mani: Manifest = toml::from_str(
             r#"
-            [package.metadata.compiler_support]
+            [package.metadata.toml_describe.compiler_checks]
             foo = { version = "1.0.0" }
         "#,
         )
         .unwrap();
 
-        let v = &mani.package.metadata.compiler_support["foo"];
+        let v = &mani.package.metadata.toml_describe.compiler_checks["foo"];
         let ver = match v {
             Constraint::Condition(ver) => ver.version.as_ref().unwrap(),
             _ => panic!("Did not get a Version"),
@@ -148,13 +155,13 @@ mod tests {
     fn test_multiple_constraints() {
         let mani: Manifest = toml::from_str(
             r#"
-            [package.metadata.compiler_support]
+            [package.metadata.toml_describe.compiler_checks]
             foo = { version = ">1.0.0, <2.0.0" }
         "#,
         )
         .unwrap();
 
-        let v = &mani.package.metadata.compiler_support["foo"];
+        let v = &mani.package.metadata.toml_describe.compiler_checks["foo"];
         let ver = match v {
             Constraint::Condition(ver) => ver.version.as_ref().unwrap(),
             _ => panic!("Did not get a Version"),
@@ -168,13 +175,13 @@ mod tests {
     fn test_cfg() {
         let mani: Manifest = toml::from_str(
             r#"
-            [package.metadata.compiler_support.'cfg(target_os = "linux")']
+            [package.metadata.toml_describe.compiler_checks.'cfg(target_os = "linux")']
             foo = { version = "~1.0.0" }
         "#,
         )
         .unwrap();
 
-        let v = &mani.package.metadata.compiler_support["cfg(target_os = \"linux\")"];
+        let v = &mani.package.metadata.toml_describe.compiler_checks["cfg(target_os = \"linux\")"];
         let cfg = match v {
             Constraint::Cfg(cfg) => cfg,
             _ => panic!("Got a Condition instead of a CFG"),
@@ -193,11 +200,11 @@ mod tests {
         temp_env::with_var("TARGET", Some("x86_64-unknown-linux-gnu"), || {
             let vals = parse(
                 r#"
-                [package.metadata.compiler_support]
+                [package.metadata.toml_describe.compiler_checks]
                 foo = { version = "1.0.0" }
-                [package.metadata.compiler_support.'cfg(target_os = "linux")']
+                [package.metadata.toml_describe.compiler_checks.'cfg(target_os = "linux")']
                 bar = { version = "1.2.0" }
-                [package.metadata.compiler_support.'cfg(target_os = "windows")']
+                [package.metadata.toml_describe.compiler_checks.'cfg(target_os = "windows")']
                 bad = { version = "1.2.0" }
             "#,
             );
@@ -212,7 +219,7 @@ mod tests {
         temp_env::with_var("TARGET", Some("x86_65-unknown-freax-gna"), || {
             parse(
                 r#"
-                [package.metadata.compiler_support.'cfg(target_os = "linux")']
+                [package.metadata.toml_describe.compiler_checks.'cfg(target_os = "linux")']
                 bar = { version = "1.2.0" }
             "#,
             );
