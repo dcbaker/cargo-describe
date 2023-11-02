@@ -19,7 +19,7 @@ impl VersionData {
     }
 }
 
-fn get_rustc() -> String {
+pub fn get_rustc() -> String {
     env::var("RUSTC")
         .unwrap_or(env::var("CARGO_BUILD_RUSTC").unwrap_or("rustc".to_string()))
         .to_string()
