@@ -6,10 +6,6 @@ mod manifest;
 use semver::Version;
 use std::{env, fs, io, path, process};
 
-struct VersionData {
-    version: Version,
-    nightly: bool,
-}
 
 fn get_rustc() -> String {
     env::var("RUSTC")
@@ -17,7 +13,7 @@ fn get_rustc() -> String {
         .to_string()
 }
 
-fn get_rustc_version() -> VersionData {
+fn get_rustc_version() -> manifest::VersionData {
     let rustc = get_rustc();
     let out = process::Command::new(rustc)
         .arg("--version")
@@ -37,10 +33,7 @@ fn get_rustc_version() -> VersionData {
     let version = Version::parse(pieces.next().unwrap()).expect("Invalid Rustc version");
     let nightly: bool = pieces.next().map(|x| x == "nightly").unwrap_or(false);
 
-    VersionData {
-        version: version,
-        nightly: nightly,
-    }
+    manifest::VersionData::new(version, nightly)
 }
 
 fn check<W: io::Write>(writer: &mut W) {
@@ -54,7 +47,7 @@ fn check<W: io::Write>(writer: &mut W) {
     writeln!(writer, "cargo:rerun-if-changed=Cargo.toml").unwrap();
 
     checks.iter().for_each(|(name, condition)| {
-        if condition.check(&rustc.version) {
+        if condition.check(&rustc) {
             writeln!(writer, "cargo:rustc-cfg={}", name).unwrap();
         }
     });
@@ -75,26 +68,6 @@ mod tests {
             [
                 ("CARGO_MANIFEST_DIR", Some("test_cases/basic")),
                 ("CARGO_BUILD_RUSTC", Some("rustc")),
-                ("TARGET", Some("x86_64-unknown-linux-gnu")),
-            ],
-            || {
-                let mut out = Vec::new();
-                check(&mut out);
-                assert_eq!(
-                    out,
-                    b"cargo:rerun-if-changed=Cargo.toml\ncargo:rustc-cfg=foo\n"
-                );
-            },
-        )
-    }
-
-    #[test]
-    fn test_emits_features() {
-        temp_env::with_vars(
-            [
-                ("CARGO_MANIFEST_DIR", Some("test_cases/features")),
-                ("CARGO_BUILD_RUSTC", Some("rustc")),
-                ("CARGO_FEATURE_A_FEATURE", Some("")),
                 ("TARGET", Some("x86_64-unknown-linux-gnu")),
             ],
             || {

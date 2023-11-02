@@ -1,6 +1,0 @@
-[features]
-default = ["a_feature"]
-a_feature = []
-
-[package.metadata.compiler_support]
-foo = { features = ["a_feature"] }

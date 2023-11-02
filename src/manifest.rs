@@ -8,6 +8,17 @@ use std::collections::HashMap;
 use std::env;
 use std::vec::Vec;
 
+pub struct VersionData {
+    version: Version,
+    nightly: bool,
+}
+
+impl VersionData {
+    pub fn new(version: Version, nightly: bool) -> Self {
+        Self { version: version, nightly: nightly }
+    }
+}
+
 #[derive(Deserialize, Debug)]
 struct Manifest {
     package: Package,
@@ -25,9 +36,6 @@ pub struct Condition {
 
     #[serde(default)]
     nightly_version: Option<VersionReq>,
-
-    #[serde(default)]
-    features: Vec<String>,
 }
 
 impl Condition {
@@ -36,7 +44,6 @@ impl Condition {
         Condition {
             version: None,
             nightly_version: None,
-            features: Vec::<String>::new(),
         }
     }
 
@@ -52,25 +59,16 @@ impl Condition {
         self
     }
 
-    #[cfg(test)]
-    fn set_features(mut self, f: &Vec<String>) -> Self {
-        self.features = f.clone();
-        self
-    }
-
-    pub fn check(&self, rust_version: &Version) -> bool {
-        if !self.features.is_empty() {
-            let feat = self
-                .features
-                .iter()
-                .all(|name| env::var(format!("CARGO_FEATURE_{}", name.to_uppercase())).is_ok());
-            if feat {
-                return true;
-            };
+    pub fn check(&self, rustc: &VersionData) -> bool {
+        if rustc.nightly {
+            return match &self.nightly_version {
+                Some(v) => v.matches(&rustc.version),
+                None => false,
+            }
         }
 
         match &self.version {
-            Some(v) => v.matches(rust_version),
+            Some(v) => v.matches(&rustc.version),
             None => false,
         }
     }
@@ -221,80 +219,19 @@ mod tests {
         });
     }
 
-    #[test]
-    fn test_features() {
-        let mani: Manifest = toml::from_str(
-            r#"
-            [package.metadata.compiler_support]
-            foo = { features = ["a_feature"] }
-        "#,
-        )
-        .unwrap();
-
-        let v = &mani.package.metadata.compiler_support["foo"];
-        let features = match v {
-            Constraint::Condition(ver) => ver.features.as_ref(),
-            _ => panic!("Did not get any features!"),
-        };
-        let expected = vec!["a_feature"];
-        assert_eq!(features, expected);
+    fn version_data(v: &str) -> VersionData {
+        VersionData::new(Version::parse(&v).unwrap(), false)
     }
 
     #[test]
     fn test_condition_check_version_match() {
         let c = Condition::new().set_version(VersionReq::parse(">= 1").ok());
-        assert!(c.check(&Version::new(1, 0, 0)));
+        assert!(c.check(&version_data("1.0.0")));
     }
 
     #[test]
     fn test_condition_check_version_not_match() {
         let c = Condition::new().set_version(VersionReq::parse("< 1").ok());
-        assert!(!c.check(&Version::new(1, 0, 0)));
-    }
-
-    #[test]
-    fn test_condition_check_feature_match() {
-        temp_env::with_var("CARGO_FEATURE_BAR", Some(""), || {
-            let c = Condition::new().set_features(&vec!["bar".to_string()]);
-            assert!(c.check(&Version::new(1, 0, 0)));
-        })
-    }
-
-    #[test]
-    fn test_condition_check_feature_not_match() {
-        temp_env::with_var_unset("CARGO_FEATURE_BAR", || {
-            let c = Condition::new().set_features(&vec!["bar".to_string()]);
-            assert!(!c.check(&Version::new(1, 0, 0)));
-        });
-    }
-
-    #[test]
-    fn test_condition_check_feature_and_version_match() {
-        temp_env::with_var("CARGO_FEATURE_BAR", Some(""), || {
-            let c = Condition::new()
-                .set_features(&vec!["bar".to_string()])
-                .set_version(VersionReq::parse(">= 1").ok());
-            assert!(c.check(&Version::new(1, 0, 0)));
-        })
-    }
-
-    #[test]
-    fn test_condition_check_feature_match_version_doesnt() {
-        temp_env::with_var("CARGO_FEATURE_BAR", Some(""), || {
-            let c = Condition::new()
-                .set_features(&vec!["bar".to_string()])
-                .set_version(VersionReq::parse("< 1").ok());
-            assert!(c.check(&Version::new(1, 0, 0)));
-        })
-    }
-
-    #[test]
-    fn test_condition_check_version_match_feature_doesnt() {
-        temp_env::with_var_unset("CARGO_FEATURE_BAR", || {
-            let c = Condition::new()
-                .set_features(&vec!["bar".to_string()])
-                .set_version(VersionReq::parse("^1").ok());
-            assert!(c.check(&Version::new(1, 0, 0)));
-        });
+        assert!(!c.check(&version_data("1.0.0")));
     }
 }
