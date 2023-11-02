@@ -68,7 +68,7 @@ pub fn parse_compiler_checks(
     let target = env::var("TARGET").expect("TARGET environment variable is unset");
     let mut ret: Vec<(String, Condition)> = vec![];
 
-    compiler_checks.iter().for_each(|(k, v)| {
+    for (k, v) in compiler_checks.iter() {
         match v {
             Constraint::Condition(con) => ret.push((k.clone(), con.clone())),
             Constraint::Cfg(c) => {
@@ -82,13 +82,13 @@ pub fn parse_compiler_checks(
                     None => panic!("Invalid CFG expression: {}", &target),
                 };
                 if res {
-                    c.iter().for_each(|(ck, cv)| {
+                    for (ck, cv) in c.iter() {
                         ret.push((ck.clone(), cv.clone()));
-                    });
+                    }
                 }
             }
         };
-    });
+    };
 
     ret
 }

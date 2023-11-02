@@ -7,11 +7,11 @@ use crate::rustc::RUSTC;
 use std::io;
 
 pub fn check<W: io::Write>(writer: &mut W, checks: &Checks) {
-    checks.compiler.iter().for_each(|(name, condition)| {
+    for (name, condition) in checks.compiler.iter() {
         if condition.check(&RUSTC) {
             writeln!(writer, "cargo:rustc-cfg={}", name).unwrap();
         }
-    });
+    };
 }
 
 #[cfg(test)]
