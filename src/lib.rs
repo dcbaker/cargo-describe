@@ -8,5 +8,6 @@ mod compiler;
 mod manifest;
 
 pub fn evaluate() {
+    println!("cargo:rerun-if-changed=Cargo.toml");
     compiler::check(&mut io::stdout());
 }
