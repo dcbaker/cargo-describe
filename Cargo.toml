@@ -9,6 +9,7 @@ description = "Set configure flags based on rustc versions or supported features
 
 [dependencies]
 cfg-expr = { version = "~0.14", features = ["targets"] }
+lazy_static = "~1.4.0"
 semver = { version = "~1.0.20", features = ["serde"] }
 serde = { version = "~1.0.189", features = [ "derive" ] }
 toml = "~0.8"

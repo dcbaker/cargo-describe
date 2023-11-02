@@ -3,6 +3,7 @@
 
 use std::io;
 
+mod rustc;
 mod compiler;
 mod manifest;
 
