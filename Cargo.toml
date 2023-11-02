@@ -20,3 +20,4 @@ temp-env = "~0.3.6"
 [features]
 default = ["compiler_checks"]
 compiler_checks = []
+cfg_checks = []
