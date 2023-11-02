@@ -16,3 +16,7 @@ toml = "~0.8"
 
 [dev-dependencies]
 temp-env = "~0.3.6"
+
+[features]
+default = ["compiler_checks"]
+compiler_checks = []

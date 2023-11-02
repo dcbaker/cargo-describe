@@ -15,7 +15,10 @@ pub struct VersionData {
 
 impl VersionData {
     pub fn new(version: Version, nightly: bool) -> Self {
-        Self { version: version, nightly: nightly }
+        Self {
+            version: version,
+            nightly: nightly,
+        }
     }
 }
 
@@ -36,10 +39,11 @@ struct Metadata {
 
 #[derive(Deserialize, Debug)]
 struct TomlDescribe {
+    #[cfg(feature = "compiler_checks")]
     compiler_checks: HashMap<String, Constraint>,
 }
 
-
+#[cfg(feature = "compiler_checks")]
 #[derive(Clone, Deserialize, Debug, PartialEq)]
 pub struct Condition {
     #[serde(default)]
@@ -75,7 +79,7 @@ impl Condition {
             return match &self.nightly_version {
                 Some(v) => v.matches(&rustc.version),
                 None => false,
-            }
+            };
         }
 
         match &self.version {
@@ -85,6 +89,7 @@ impl Condition {
     }
 }
 
+#[cfg(feature = "compiler_checks")]
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 enum Constraint {
@@ -92,40 +97,59 @@ enum Constraint {
     Condition(Condition),
 }
 
-pub fn parse(text: &str) -> Vec<(String, Condition)> {
-    let mani: Manifest =
-        toml::from_str(text).expect("Did not find a 'toml_describe' metadata section.");
+#[cfg(feature = "compiler_checks")]
+fn parse_compiler_checks(description: &TomlDescribe) -> Vec<(String, Condition)> {
     let target = env::var("TARGET").expect("TARGET environment variable is unset");
     let mut ret: Vec<(String, Condition)> = vec![];
 
-    mani.package
-        .metadata
-        .toml_describe
-        .compiler_checks
-        .iter()
-        .for_each(|(k, v)| {
-            match v {
-                Constraint::Condition(con) => ret.push((k.clone(), con.clone())),
-                Constraint::Cfg(c) => {
-                    let cfg = Expression::parse(k)
-                        .expect(format!("Invalid cfg expression: {}", k.to_string()).as_str());
-                    let res = match get_builtin_target_by_triple(&target) {
-                        Some(tinfo) => cfg.eval(|p| match p {
-                            Predicate::Target(tp) => tp.matches(tinfo),
-                            _ => panic!("Invalid CFG expression: {}", &target),
-                        }),
-                        None => panic!("Invalid CFG expression: {}", &target),
-                    };
-                    if res {
-                        c.iter().for_each(|(ck, cv)| {
-                            ret.push((ck.clone(), cv.clone()));
-                        });
-                    }
+    description.compiler_checks.iter().for_each(|(k, v)| {
+        match v {
+            Constraint::Condition(con) => ret.push((k.clone(), con.clone())),
+            Constraint::Cfg(c) => {
+                let cfg = Expression::parse(k)
+                    .expect(format!("Invalid cfg expression: {}", k.to_string()).as_str());
+                let res = match get_builtin_target_by_triple(&target) {
+                    Some(tinfo) => cfg.eval(|p| match p {
+                        Predicate::Target(tp) => tp.matches(tinfo),
+                        _ => panic!("Invalid CFG expression: {}", &target),
+                    }),
+                    None => panic!("Invalid CFG expression: {}", &target),
+                };
+                if res {
+                    c.iter().for_each(|(ck, cv)| {
+                        ret.push((ck.clone(), cv.clone()));
+                    });
                 }
-            };
-        });
+            }
+        };
+    });
 
-    return ret;
+    ret
+}
+
+#[derive(Default)]
+pub struct Checks {
+    #[cfg(feature = "compiler_checks")]
+    pub compiler: Vec<(String, Condition)>,
+}
+
+impl Checks {
+    fn new() -> Self {
+        Checks {
+            ..Default::default()
+        }
+    }
+}
+
+pub fn parse(text: &str) -> Checks {
+    let mani: Manifest =
+        toml::from_str(text).expect("Did not find a 'toml_describe' metadata section.");
+    let mut checks = Checks::new();
+    if cfg!(feature = "compiler_checks") {
+        checks.compiler = parse_compiler_checks(&mani.package.metadata.toml_describe);
+    }
+
+    checks
 }
 
 #[cfg(test)]
@@ -134,6 +158,7 @@ mod tests {
     use temp_env;
 
     #[test]
+    #[cfg(feature = "compiler_checks")]
     fn test_basic_read() {
         let mani: Manifest = toml::from_str(
             r#"
@@ -152,6 +177,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "compiler_checks")]
     fn test_multiple_constraints() {
         let mani: Manifest = toml::from_str(
             r#"
@@ -172,6 +198,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "compiler_checks")]
     fn test_cfg() {
         let mani: Manifest = toml::from_str(
             r#"
@@ -196,6 +223,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "compiler_checks")]
     fn test_parse_cfg() {
         temp_env::with_var("TARGET", Some("x86_64-unknown-linux-gnu"), || {
             let vals = parse(
@@ -209,11 +237,12 @@ mod tests {
             "#,
             );
 
-            assert_eq!(vals.len(), 2);
+            assert_eq!(vals.compiler.len(), 2);
         });
     }
 
     #[test]
+    #[cfg(feature = "compiler_checks")]
     #[should_panic(expected = "Invalid CFG expression: x86_65-unknown-freax-gna")]
     fn test_invalid_cfg() {
         temp_env::with_var("TARGET", Some("x86_65-unknown-freax-gna"), || {
@@ -231,12 +260,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "compiler_checks")]
     fn test_condition_check_version_match() {
         let c = Condition::new().set_version(VersionReq::parse(">= 1").ok());
         assert!(c.check(&version_data("1.0.0")));
     }
 
     #[test]
+    #[cfg(feature = "compiler_checks")]
     fn test_condition_check_version_not_match() {
         let c = Condition::new().set_version(VersionReq::parse("< 1").ok());
         assert!(!c.check(&version_data("1.0.0")));

@@ -12,7 +12,7 @@ pub fn check<W: io::Write>(writer: &mut W) {
     let contents = fs::read_to_string(p).expect("Could not read Cargo.toml");
     let checks = manifest::parse(&contents);
 
-    checks.iter().for_each(|(name, condition)| {
+    checks.compiler.iter().for_each(|(name, condition)| {
         if condition.check(&RUSTC) {
             writeln!(writer, "cargo:rustc-cfg={}", name).unwrap();
         }

@@ -3,11 +3,15 @@
 
 use std::io;
 
-mod rustc;
+#[cfg(feature = "compiler_checks")]
 mod compiler;
 mod manifest;
+mod rustc;
 
 pub fn evaluate() {
     println!("cargo:rerun-if-changed=Cargo.toml");
-    compiler::check(&mut io::stdout());
+    #[cfg(feature = "compiler_checks")]
+    if cfg!(feature = "compiler_checks") {
+        compiler::check(&mut io::stdout());
+    }
 }
