@@ -1,9 +1,9 @@
 [package]
-name = "cargo_describe"
+name = "toml_describe"
 version = "0.0.1"
 edition = "2021"
 license = "MIT"
-description = "Set configure flags based on rustc versions or supported features, from Cargo.toml"
+description = "Describe various configuration checks from Cargo.toml."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
