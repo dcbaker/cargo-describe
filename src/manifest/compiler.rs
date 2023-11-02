@@ -96,7 +96,7 @@ pub fn parse_compiler_checks(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manifest::{Manifest, parse};
+    use crate::manifest::{parse, Manifest};
     use semver::Version;
     use temp_env;
 

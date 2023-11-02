@@ -17,12 +17,13 @@ pub fn check<W: io::Write>(writer: &mut W, checks: &Checks) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use temp_env;
     use crate::manifest::parse;
     use std::{env, fs, path};
+    use temp_env;
 
     fn get_checks() -> Checks {
-        let root = env::var("CARGO_MANIFEST_DIR").expect("Cargo manifest environment variable unset");
+        let root =
+            env::var("CARGO_MANIFEST_DIR").expect("Cargo manifest environment variable unset");
         let p: path::PathBuf = [root, "Cargo.toml".to_string()].iter().collect();
         let contents = fs::read_to_string(p).expect("Could not read Cargo.toml");
         parse(&contents)

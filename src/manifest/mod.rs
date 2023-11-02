@@ -72,7 +72,7 @@ pub fn parse(text: &str) -> Checks {
             };
 
             cfgs.push((k.clone(), ret));
-        };
+        }
         checks.cfgs = cfgs;
     }
 

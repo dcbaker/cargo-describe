@@ -6,8 +6,10 @@ use crate::manifest::Checks;
 use std::io;
 
 pub fn check<W: io::Write>(writer: &mut W, checks: &Checks) {
-    checks.cfgs.iter().for_each(|(name, allowed)| {
-        match allowed {
+    checks
+        .cfgs
+        .iter()
+        .for_each(|(name, allowed)| match allowed {
             None => writeln!(writer, "cargo:rustc-check-cfg=cfg({})", name).unwrap(),
             Some(a) => {
                 let mut formatted = Vec::<String>::new();
@@ -15,10 +17,14 @@ pub fn check<W: io::Write>(writer: &mut W, checks: &Checks) {
                     formatted.push(format!("\"{fv}\""));
                 }
                 let fv = formatted.join(", ");
-                writeln!(writer, "cargo:rustc-check-cfg=cfg({}, values({}))", name, fv).unwrap();
+                writeln!(
+                    writer,
+                    "cargo:rustc-check-cfg=cfg({}, values({}))",
+                    name, fv
+                )
+                .unwrap();
             }
-        }
-    });
+        });
 }
 
 #[cfg(test)]

@@ -3,10 +3,10 @@
 
 use std::{env, fs, io, path};
 
-#[cfg(feature = "compiler_checks")]
-mod compiler;
 #[cfg(feature = "cfg_checks")]
 mod cfg;
+#[cfg(feature = "compiler_checks")]
+mod compiler;
 mod manifest;
 mod rustc;
 
