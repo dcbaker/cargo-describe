@@ -1,26 +1,13 @@
 // SPDX-License-Identifier: MIT
 
+use crate::rustc::VersionData;
 use cfg_expr::targets::get_builtin_target_by_triple;
 use cfg_expr::{Expression, Predicate};
-use semver::{Version, VersionReq};
+use semver::VersionReq;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;
 use std::vec::Vec;
-
-pub struct VersionData {
-    version: Version,
-    nightly: bool,
-}
-
-impl VersionData {
-    pub fn new(version: Version, nightly: bool) -> Self {
-        Self {
-            version: version,
-            nightly: nightly,
-        }
-    }
-}
 
 #[derive(Deserialize, Debug)]
 struct Manifest {
@@ -156,6 +143,7 @@ pub fn parse(text: &str) -> Checks {
 mod tests {
     use super::*;
     use temp_env;
+    use semver::Version;
 
     #[test]
     #[cfg(feature = "compiler_checks")]
