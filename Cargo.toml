@@ -18,6 +18,6 @@ toml = "~0.8"
 temp-env = "~0.3.6"
 
 [features]
-default = ["compiler_checks"]
+default = ["compiler_checks", "cfg_checks"]
 compiler_checks = []
 cfg_checks = []

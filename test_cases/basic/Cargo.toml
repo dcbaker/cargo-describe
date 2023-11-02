@@ -1,2 +1,6 @@
 [package.metadata.toml_describe.compiler_checks]
 foo = { version = "~1" }
+
+[package.metadata.toml_describe.allowed_cfgs]
+foo = []
+bar = ["a", "b"]

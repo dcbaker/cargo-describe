@@ -34,7 +34,7 @@ struct TomlDescribe {
 
     #[cfg(feature = "cfg_checks")]
     #[serde(default)]
-    pub allowed_cfgs: Vec<String>,
+    pub allowed_cfgs: HashMap<String, Vec<String>>,
 }
 
 #[derive(Default)]
@@ -43,7 +43,7 @@ pub struct Checks {
     pub compiler: Vec<(String, Condition)>,
 
     #[cfg(feature = "cfg_checks")]
-    pub cfgs: Vec<String>,
+    pub cfgs: Vec<(String, Option<Vec<String>>)>,
 }
 
 impl Checks {
@@ -55,8 +55,7 @@ impl Checks {
 }
 
 pub fn parse(text: &str) -> Checks {
-    let mani: Manifest =
-        toml::from_str(text).expect("Did not find a 'toml_describe' metadata section.");
+    let mani: Manifest = toml::from_str(text).unwrap();
     let mut checks = Checks::new();
     #[cfg(feature = "compiler_checks")]
     {
@@ -65,7 +64,16 @@ pub fn parse(text: &str) -> Checks {
     }
     #[cfg(feature = "cfg_checks")]
     {
-        checks.cfgs = mani.package.metadata.toml_describe.allowed_cfgs.clone();
+        let mut cfgs = Vec::<(String, Option<Vec<String>>)>::new();
+        for (k, v) in mani.package.metadata.toml_describe.allowed_cfgs {
+            let ret = match v.is_empty() {
+                true => None,
+                false => Some(v.clone()),
+            };
+
+            cfgs.push((k.clone(), ret));
+        };
+        checks.cfgs = cfgs;
     }
 
     checks
