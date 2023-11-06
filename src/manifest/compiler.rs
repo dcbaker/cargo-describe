@@ -201,6 +201,26 @@ mod tests {
     }
 
     #[test]
+    fn test_parses_nightly() {
+        let mani: Manifest = toml::from_str(
+            r#"
+            [package.metadata.toml_describe.compiler_checks]
+            foo = { nightly_version = ">1.0.0, <2.0.0" }
+        "#,
+        )
+        .unwrap();
+
+        let v = &mani.package.metadata.toml_describe.compiler_checks["foo"];
+        let ver = match v {
+            Constraint::Condition(ver) => ver.nightly_version.as_ref().unwrap(),
+            _ => panic!("Did not get a nightly_version"),
+        };
+        assert!(ver.matches(&Version::new(1, 3, 0)));
+        assert!(!ver.matches(&Version::new(0, 3, 0)));
+        assert!(!ver.matches(&Version::new(2, 3, 0)));
+    }
+
+    #[test]
     fn test_parses_can_compile() {
         let mani: Manifest = toml::from_str(
             r#"
