@@ -8,10 +8,10 @@ description = "Describe various configuration checks from Cargo.toml."
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cfg-expr = { version = "~0.14", features = ["targets"] }
-lazy_static = "~1.4.0"
-semver = { version = "~1.0.20", features = ["serde"] }
-serde = { version = "~1.0.189", features = [ "derive" ] }
+cfg-expr = { version = "~0.14", features = ["targets"], optional = true }
+lazy_static = { version = "~1.4.0", optional = true }
+semver = { version = "~1.0.20", features = ["serde"], optional = true }
+serde = { version = "~1.0.189", features = [ "derive" ]  }
 toml = "~0.8"
 
 [dev-dependencies]
@@ -19,5 +19,5 @@ temp-env = "~0.3.6"
 
 [features]
 default = ["compiler_checks"]
-compiler_checks = []
+compiler_checks = ["dep:cfg-expr", "dep:semver", "dep:lazy_static"]
 cfg_checks = []

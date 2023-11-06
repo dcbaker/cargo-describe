@@ -7,8 +7,9 @@ use std::{env, fs, io, path};
 mod cfg;
 #[cfg(feature = "compiler_checks")]
 mod compiler;
-mod manifest;
+#[cfg(feature = "compiler_checks")]
 mod rustc;
+mod manifest;
 
 pub fn evaluate() {
     println!("cargo:rerun-if-changed=Cargo.toml");
