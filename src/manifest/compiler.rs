@@ -80,12 +80,6 @@ impl Condition {
     }
 
     #[cfg(test)]
-    fn set_nightly(mut self, v: Option<VersionReq>) -> Self {
-        self.nightly_version = v;
-        self
-    }
-
-    #[cfg(test)]
     fn set_can_compile(mut self, v: Option<String>) -> Self {
         self.can_compile = v;
         self
