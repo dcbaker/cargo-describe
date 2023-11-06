@@ -100,9 +100,8 @@ impl Condition {
 
     fn check_version(&self, rustc: &VersionData) -> bool {
         if rustc.nightly {
-            return match &self.nightly_version {
-                Some(v) => v.matches(&rustc.version),
-                None => false,
+            if let Some(v) = &self.nightly_version {
+                return v.matches(&rustc.version);
             };
         }
 
