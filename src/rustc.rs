@@ -19,16 +19,16 @@ impl VersionData {
     }
 }
 
-pub fn get_rustc() -> String {
-    env::var("RUSTC")
-        .unwrap_or(env::var("CARGO_BUILD_RUSTC").unwrap_or("rustc".to_string()))
-        .to_string()
-}
 
 lazy_static! {
+    pub static ref RUSTC_CMD: String = {
+        env::var("RUSTC")
+            .unwrap_or(env::var("CARGO_BUILD_RUSTC").unwrap_or("rustc".to_string()))
+            .to_string()
+    };
+
     pub static ref RUSTC: VersionData = {
-        let rustc = get_rustc();
-        let out = process::Command::new(rustc)
+        let out = process::Command::new(RUSTC_CMD.as_str())
             .arg("--version")
             .arg("--verbose")
             .output()

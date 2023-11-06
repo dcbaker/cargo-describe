@@ -1,7 +1,7 @@
 // Copyright © 2023 Dylan Baker
 // SPDX-License-Identifier: MIT
 
-use crate::rustc::{get_rustc, VersionData};
+use crate::rustc::{RUSTC_CMD, VersionData};
 use cfg_expr::targets::get_builtin_target_by_triple;
 use cfg_expr::{Expression, Predicate};
 use semver::VersionReq;
@@ -15,15 +15,14 @@ fn check_compiles(src: &str) -> bool {
 
     let out_dir = env::var("OUT_DIR").unwrap();
     let target = env::var("TARGET").unwrap();
-    let rustc = get_rustc();
 
     let mut cmd = match env::var("RUSTC_WRAPPER") {
         Ok(wrapper) => {
             let mut c = std::process::Command::new(wrapper);
-            c.arg(rustc);
+            c.arg(RUSTC_CMD.as_str());
             c
         }
-        Err(_) => std::process::Command::new(rustc),
+        Err(_) => std::process::Command::new(RUSTC_CMD.as_str()),
     };
 
     cmd.arg("--crate-type=rlib")
