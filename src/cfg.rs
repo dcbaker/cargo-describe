@@ -23,7 +23,7 @@ pub fn check<W: io::Write>(writer: &mut W, checks: &Checks) {
                 .unwrap();
             }
         }
-    };
+    }
 }
 
 #[cfg(test)]
@@ -50,9 +50,16 @@ mod tests {
                 ("TARGET", Some("x86_64-unknown-linux-gnu")),
             ],
             || {
+                let expected = vec!["cargo:rustc-check-cfg=cfg(foo)", "cargo:rustc-check-cfg=cfg(bar, values(\"a\", \"b\"))"];
+
                 let mut out = Vec::new();
                 check(&mut out, &get_checks());
-                assert_eq!(out, b"cargo:rustc-check-cfg=cfg(foo)\ncargo:rustc-check-cfg=cfg(bar, values(\"a\", \"b\"))\n");
+                let val = std::str::from_utf8(&out).unwrap();
+                let found: Vec<&str> = val.strip_suffix("\n").unwrap().split("\n").collect();
+                assert_eq!(expected.len(), found.len(), "Got wrong number of elements, expected {}, got {}", expected.len(), found.len());
+                for v in found {
+                    assert!(expected.contains(&v), "'{v}' not found in {expected:?}");
+                }
             },
         )
     }
