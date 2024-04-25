@@ -4,10 +4,6 @@ Toml-describe is a rust crate to allow describing feature checks in toml, instea
 
 ## Usage
 
-Toml-Describe provides a number of checks, and I plan to add more as they make sense. Currently, it allows various kinds of compiler checks, as well as defining a valid list of cfgs that are passed to cargo for use with the experimental cfg check option
-
-### build.rs
-
 Add this snippet to your build.rs:
 ```rs
 extern crate toml_describe;
@@ -22,15 +18,15 @@ fn main() {
 These are added to Toml in the format
 
 ```toml
-[package.metadata.toml_describ.compiler_checks.CFG_NAME]
+[package.metadata.toml_describe.compiler_checks.CFG_NAME]
 version = "1.75"
 nightly_version = "1.60"
 ```
 
-Using `version` will set the cfg if the compiler is at least the given version, `nightly_version` will return tru if the compiler is `nightly` and the compiler has at least that version. If both are specified it will return true if either check is valid
+Using `version` will set the cfg if the compiler is at least the given version, `nightly_version` will return tru if the compiler is `nightly` and the compiler has at least that version. If both `version` and `nightly_version` are set, then the condition is true if either check succeeds.
 
 ```toml
-[package.metadata.toml_describ.compiler_checks]
+[package.metadata.toml_describe.compiler_checks]
 CFG_NAME = { can_compile = "fn function() -> bool { false }" }
 ```
 
