@@ -13,8 +13,8 @@ pub struct VersionData {
 impl VersionData {
     pub fn new(version: Version, nightly: bool) -> Self {
         Self {
-            version: version,
-            nightly: nightly,
+            version,
+            nightly,
         }
     }
 }

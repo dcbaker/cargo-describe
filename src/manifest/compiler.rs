@@ -127,7 +127,7 @@ pub fn parse_compiler_checks(
             Constraint::Condition(con) => ret.push((k.clone(), con.clone())),
             Constraint::Cfg(c) => {
                 let cfg = Expression::parse(k)
-                    .expect(format!("Invalid cfg expression: {}", k.to_string()).as_str());
+                    .expect(format!("Invalid cfg expression: {}", k).as_str());
                 let res = match get_builtin_target_by_triple(&target) {
                     Some(tinfo) => cfg.eval(|p| match p {
                         Predicate::Target(tp) => tp.matches(tinfo),
